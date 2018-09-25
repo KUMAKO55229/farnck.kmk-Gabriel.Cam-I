@@ -9,6 +9,7 @@ typedef enum {
     PEDIDO__SIZE
 } pedido_prato_t;
 
+
 typedef struct {
     unsigned id;
     pedido_prato_t prato;

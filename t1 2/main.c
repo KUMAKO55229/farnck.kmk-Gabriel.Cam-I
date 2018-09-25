@@ -56,7 +56,7 @@ void processar_pedido(pedido_t p){
 
      }else if (p.prato == "CARNE"){
 
-     }else if (p.prato == "SOPA"){
+     }else if (p.prato == "SOPA){
 
      }
 

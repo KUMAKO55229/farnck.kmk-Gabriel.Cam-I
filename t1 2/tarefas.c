@@ -12,6 +12,7 @@ static void simulation_sleep(unsigned minutes) {
     nanosleep(&ts, NULL);
 }
 
+
 /** Exercício 1 de mutex sem mutex, entender isso não é parte do
     trabalho.  
 

@@ -10,6 +10,7 @@ const char* pedido_prato_names[] = {
     "CARNE"
 };
 
+
 pedido_prato_t pedido_prato_from_name(const char* name) {
     for (int i = 0; i < PEDIDO__SIZE; ++i) {
         if (strcmp(name, pedido_prato_names[i]) == 0)

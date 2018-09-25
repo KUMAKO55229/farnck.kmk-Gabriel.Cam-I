@@ -3,12 +3,15 @@
 
 #include "pedido.h"
 
+
+
 /* --- --- insumos usados em várias receitas --- --- */
 
 typedef struct {
     unsigned id;
     char fervida;
 } agua_t;
+
 
 /* Nesse restaurante a água não é pega da torneira, ela é criada.
    Retorna um ponteiro para um objeto agua_t alocado com malloc(). 
