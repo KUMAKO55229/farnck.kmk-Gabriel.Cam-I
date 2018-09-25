@@ -52,17 +52,100 @@ void check_missing(int value, const char* name) {
 
 //funcc
 void processar_pedido(pedido_t p){
+
+      create_prato(pedido_t pedido);
+
      if (p.prato == "SPAGHETTI"){
+       /*  Spaghetti: 
+        Esquentar o molho [5min]
+        Ferver água [3min]
+        Cozinhar o Spaghetti (na água fervente) [5min]
+        Dourar o bacon em uma frigideira [2min]
+        Empratar o pedido [3min] [DE]*/
+
+         create_spaghetti();
+
+         create_molho();
+
+         esquentar_molho(molho_t* molho);
+
+         destroy_molho(molho_t* molho);
+         
+         ferver_agua(agua_t* agua);
+
+         cozinhar_spaghetti(spaghetti_t* spaghetti, agua_t* agua);
+
+         destroy_spaghetti(spaghetti_t* spaghetti);
+
+         
+         empratar_spaghetti(spaghetti_t* spaghetti, molho_t* molho, 
+                               bacon_t* bacon, prato_t* prato);
+
+
+
 
      }else if (p.prato == "CARNE"){
 
+
+         /*  
+        Carne:
+        Cortar a carne [5min] [DE]
+        Temperar a carne [3min] [DE]
+        Grelhar a carne em uma frigideira [3min] [DE]
+        Empratar o pedido [1min] [DE] 
+        */
+         
+
+
+
+         create_carne();
+
+         cortar_carne(carne_t* carne);
+
+         temperar_carne(carne_t* carne);
+
+         grelhar_carne(carne_t* carne);
+
+         destroy_carne(carne_t* carne);
+
+         empratar_carne(carne_t* carne, prato_t* prato);
+    
+
      }else if (p.prato == "SOPA"){
 
+
+        /* Sopa:
+         Cortar legumes [10min] [DE]
+         Ferver a água [3min]
+         Fazer o caldo (com a água fervente, precisa de boca de fogão) [2min]
+         Cozinhar os legumes no caldo [8min]
+         Empratar o pedido [1min] [DE] */
+
+
+
+         create_legumes();
+
+         cortar_legumes(legumes_t* legumes);
+
+         ferver_agua(agua_t* agua);
+
+
+        preparar_caldo(agua_t* agua_ferv);  //1min
+
+        destroy_caldo(caldo_t* caldo);
+
+         cozinhar_legumes(legumes_t* legumes, caldo_t* caldo);
+
+         destroy_legumes(legumes_t* legumes);
+
+         empratar_sopa(legumes_t* legumes, caldo_t* caldo, prato_t* prato);
+
      }
-
      
+ 
 
 
+   destroy_prato(prato_t* p);
 }
 
 void cozinha_init(int cozinheiros, int bocas, int frigideiras, int garcons, int tam_balcao){
@@ -150,14 +233,13 @@ int main(int argc, char** argv) {
         perror("Erro lendo pedidos de stdin:");
     }
      
-     while(){
-        
-     }
-
+     
 
     free(buf);
 
+   
     cozinha_destroy();
+
 
     return 0;
 }
