@@ -13,10 +13,6 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <sys/time.h>
-
-
-
-
 static struct option cmd_opts[] = {
     {"cozinheiros", required_argument, 0, 'c'},
     {"bocas",       required_argument, 0, 'b'},
@@ -27,6 +23,9 @@ static struct option cmd_opts[] = {
     {"help",        no_argument,       0, 'h'},
     {0, 0, 0, 0}
 };
+
+
+
 
 int parse_gt_zero(const char* buf, const char* name, int* res) {
     errno = 0;
@@ -50,12 +49,14 @@ void check_missing(int value, const char* name) {
     abort();
 }
 
-//funcc
 void processar_pedido(pedido_t p){
 
-      create_prato(pedido_t pedido);
+        create_prato(p);
 
+ 
      if (p.prato == "SPAGHETTI"){
+
+
        /*  Spaghetti: 
         Esquentar o molho [5min]
         Ferver água [3min]
@@ -67,26 +68,21 @@ void processar_pedido(pedido_t p){
 
          create_molho();
 
-         esquentar_molho(molho_t* molho);
+         esquentar_molho(molho);
 
-         destroy_molho(molho_t* molho);
+         destroy_molho(molho);
          
-         ferver_agua(agua_t* agua);
+         ferver_agua(agua);
 
-         cozinhar_spaghetti(spaghetti_t* spaghetti, agua_t* agua);
+         cozinhar_spaghetti(spaghetti, agua);
 
-         destroy_spaghetti(spaghetti_t* spaghetti);
+         destroy_spaghetti(spaghetti);
 
          
-         empratar_spaghetti(spaghetti_t* spaghetti, molho_t* molho, 
-                               bacon_t* bacon, prato_t* prato);
-
-
-
+         empratar_spaghetti( spaghetti,  molho, 
+                             bacon,  prato);
 
      }else if (p.prato == "CARNE"){
-
-
          /*  
         Carne:
         Cortar a carne [5min] [DE]
@@ -94,60 +90,54 @@ void processar_pedido(pedido_t p){
         Grelhar a carne em uma frigideira [3min] [DE]
         Empratar o pedido [1min] [DE] 
         */
-         
-
-
-
          create_carne();
 
-         cortar_carne(carne_t* carne);
+         cortar_carne(carne);
 
-         temperar_carne(carne_t* carne);
+         temperar_carne(carne);
 
-         grelhar_carne(carne_t* carne);
+         grelhar_carne(carne);
 
-         destroy_carne(carne_t* carne);
+         destroy_carne(carne);
 
-         empratar_carne(carne_t* carne, prato_t* prato);
-    
-
+         empratar_carne(carne, prato);
      }else if (p.prato == "SOPA"){
-
-
         /* Sopa:
          Cortar legumes [10min] [DE]
          Ferver a água [3min]
          Fazer o caldo (com a água fervente, precisa de boca de fogão) [2min]
          Cozinhar os legumes no caldo [8min]
          Empratar o pedido [1min] [DE] */
-
-
-
          create_legumes();
 
-         cortar_legumes(legumes_t* legumes);
+         cortar_legumes( legumes);
 
-         ferver_agua(agua_t* agua);
+         ferver_agua(agua);
 
 
-        preparar_caldo(agua_t* agua_ferv);  //1min
+        preparar_caldo(agua_ferv);  //1min
 
-        destroy_caldo(caldo_t* caldo);
+        destroy_caldo(caldo);
 
-         cozinhar_legumes(legumes_t* legumes, caldo_t* caldo);
+         cozinhar_legumes(legumes,  caldo);
 
-         destroy_legumes(legumes_t* legumes);
+         destroy_legumes( legumes);
 
-         empratar_sopa(legumes_t* legumes, caldo_t* caldo, prato_t* prato);
+         empratar_sopa(legumes,caldo, prato);
 
      }
-     
- 
+   
+   destroy_prato(p);
 
+   notificar_prato_no_balcao( prato);
 
-   destroy_prato(prato_t* p);
 }
 
+ void entregar_pedido(prato_t* prato){
+    
+ }
+
+// inicialização da da cozinha
 void cozinha_init(int cozinheiros, int bocas, int frigideiras, int garcons, int tam_balcao){
 
 
@@ -224,8 +214,11 @@ int main(int argc, char** argv) {
         if (!p.prato) 
             fprintf(stderr, "Pedido inválido descartado: \"%s\"\n", buf);
         else 
-            // criando as threads
+            // criando as threads cozinheiros
             pthread_create(&threads_cozinheiros[next_id++],NULL,&processar_pedido,&p);
+            // criando as threads garcons
+            pthread_create(&threads_garcons[next_id++],NULL,&entregar_pedido,&p);
+
 
             //processar_pedido(p);
     }
