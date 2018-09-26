@@ -6,7 +6,7 @@
 #include "pedido.h"
 #include "cozinha.h"
 #include "tarefas.h"
-
+ 
 
 #include <unistd.h>
 
@@ -53,8 +53,12 @@ void processar_pedido(pedido_t p){
 
         create_prato(p);
 
- 
-     if (p.prato == "SPAGHETTI"){
+  
+     // if (p.prato == "SPAGHETTI")
+
+    // if (strcmp (p.prato,"SPAGHETTI") == 1)
+
+       if(p.prato == PEDIDO_SPAGHETTI) {
 
 
        /*  Spaghetti: 
@@ -64,6 +68,7 @@ void processar_pedido(pedido_t p){
         Dourar o bacon em uma frigideira [2min]
         Empratar o pedido [3min] [DE]*/
 
+        // receita correta? 
          create_spaghetti();
 
          create_molho();
@@ -115,9 +120,9 @@ void processar_pedido(pedido_t p){
          ferver_agua(agua);
 
 
-        preparar_caldo(agua_ferv);  //1min
+         preparar_caldo(agua_ferv);  //1min
 
-        destroy_caldo(caldo);
+         destroy_caldo(caldo);
 
          cozinhar_legumes(legumes,  caldo);
 
@@ -133,9 +138,16 @@ void processar_pedido(pedido_t p){
 
 }
 
- void entregar_pedido(prato_t* prato){
+
+Funcao_garcon(pedido_t p){
+
+//essa conversão é possível? 
+ prato_t prato = *(prato_t*)p ;
+
+ entregar_pedido(prato_t* prato);
+}
     
- }
+
 
 // inicialização da da cozinha
 void cozinha_init(int cozinheiros, int bocas, int frigideiras, int garcons, int tam_balcao){
@@ -217,7 +229,7 @@ int main(int argc, char** argv) {
             // criando as threads cozinheiros
             pthread_create(&threads_cozinheiros[next_id++],NULL,&processar_pedido,&p);
             // criando as threads garcons
-            pthread_create(&threads_garcons[next_id++],NULL,&entregar_pedido,&p);
+            pthread_create(&threads_garcons[next_id++],NULL,&Funcao_garcon,&p);
 
 
             //processar_pedido(p);
