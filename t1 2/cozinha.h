@@ -17,8 +17,8 @@
 
 extern void cozinha_init(int cozinheiros, int bocas, int frigideiras, int garcons, int tam_balcao);
 extern void cozinha_destroy();
-extern void processar_pedido(pedido_t p);
-//extern void Funcao_garcon(pedido_t p);
+extern void processar_pedido(pedido_t *p);
+extern void funcao_garcon(pedido_t *p);
 
 
 
@@ -26,11 +26,9 @@ extern  sem_t  bocas;
 extern  sem_t  frigideiras;
 extern  sem_t  BalcaoCheio;
 extern  sem_t  BalcaoVazio;
+extern  sem_t  sem_cozinheiros;
+extern  sem_t  sem_garcons;
 
-
-extern  pthread_mutex_t cozinheiro; // a ser utilizado em tarefas com DE
-
-extern  pthread_mutex_t garcon;// para controlar a entrega de pedido
 
 /*
 typedef struct{

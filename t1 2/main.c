@@ -49,11 +49,12 @@ void check_missing(int value, const char* name) {
     abort();
 }
 
-void processar_pedido(pedido_t p){
+void processar_pedido(pedido_t *p){
 
-        create_prato(p);
+    prato_t *prato = create_prato(*p);
+    sem_wait(&sem_cozinheiros);
 
-       if(p.prato == PEDIDO_SPAGHETTI) {
+    if(p->prato == PEDIDO_SPAGHETTI) {
 
 
        /*  Spaghetti:
@@ -65,42 +66,47 @@ void processar_pedido(pedido_t p){
 
         // receita correta?
         pthread_t molho_thread, agua_thread, dourar_thread;
-        pthread_mutex_init mutex_agua;
-        create_spaghetti();
 
-         create_molho();
-         create_bacon();
+        spaghetti_t spaghetti = create_spaghetti();
+        molho_t *molho = create_molho();
+        bacon_t *bacon = create_bacon();
+        agua_t *agua = create_agua();
 
-         sem_wait(&bocas);
-         pthread_create(&molho_thread,NULL,&esquentar_molho,(void *)molho);
-         sem_post(&bocas);
-
-         destroy_molho(molho);
-
-         sem_wait(&bocas);
-         sem_wait(&frigideiras);
-         pthread_create(&dourar_thread,NULL,&dourar_bacon,(void *)bacon);
-         sem_post(&frigideiras);
-         sem_post(&bocas);
-
-         sem_wait(&bocas);
-         pthread_create(&agua_thread,NULL,&ferver_agua,(void *)agua);
-
-         pthread_join(&agua_thread,NULL);
-         cozinhar_spaghetti(spaghetti, agua);
-         sem_post(&bocas);
-
-         pthread_join(&molho_thread,NULL);
-         pthread_join(&dourar_bacon,NULL);
-
-         destroy_bacon(bacon);
-         destroy_spaghetti(spaghetti);
+        sem_wait(&bocas);
+        pthread_create(&molho_thread,NULL,&esquentar_molho,(void *)molho);
 
 
-         empratar_spaghetti( spaghetti,  molho,
+        sem_wait(&bocas);
+        sem_wait(&frigideiras);
+        pthread_create(&dourar_thread,NULL,&dourar_bacon,(void *)bacon);
+
+        sem_wait(&bocas);
+        pthread_create(&agua_thread,NULL,&ferver_agua,(void *)agua);
+
+        pthread_join(&agua_thread,NULL);
+        cozinhar_spaghetti(spaghetti, agua);
+
+        pthread_join(&molho_thread,NULL);
+        pthread_join(&dourar_bacon,NULL);
+
+
+        sem_wait(&BalcaoVazio);
+        empratar_spaghetti( spaghetti,  molho,
                              bacon,  prato);
+        sem_post(&BalcaoCheio);
 
-     }else if (p.prato == "CARNE"){
+        sem_post(&bocas);
+        sem_post(&frigideiras);
+        sem_post(&bocas);
+        sem_post(&bocas);
+
+
+        destroy_molho(molho);
+        destroy_spaghetti(spaghetti);
+        destroy_bacon(bacon);
+        destroy_agua(agua);
+
+    }else if (p->prato == PEDIDO_CARNE){
          /*
         Carne:
         Cortar a carne [5min] [DE]
@@ -108,56 +114,69 @@ void processar_pedido(pedido_t p){
         Grelhar a carne em uma frigideira [3min] [DE]
         Empratar o pedido [1min] [DE]
         */
-         create_carne();
+        carne_t carne = create_carne();
 
-         cortar_carne(carne);
+        cortar_carne(carne);
 
-         temperar_carne(carne);
+        temperar_carne(carne);
 
-         grelhar_carne(carne);
+        sem_wait(&bocas);
+        sem_wait(&frigideira);
+        grelhar_carne(carne);
 
-         destroy_carne(carne);
+        sem_wait(&BalcaoVazio);
+        empratar_carne(carne, prato);
+        sem_post(&frigideira);
+        sem_post(&bocas);
+        sem_post(&BalcaoCheio);
 
-         empratar_carne(carne, prato);
-     }else if (p.prato == "SOPA"){
+
+        destroy_carne(carne);
+    }else if (p->prato == PEDIDO_SOPA){
         /* Sopa:
          Cortar legumes [10min] [DE]
          Ferver a água [3min]
          Fazer o caldo (com a água fervente, precisa de boca de fogão) [2min]
          Cozinhar os legumes no caldo [8min]
          Empratar o pedido [1min] [DE] */
-         create_legumes();
+         legumes_t legumes = create_legumes();
+         agua_t agua = create_agua();
 
-         cortar_legumes( legumes);
+         cortar_legumes(legumes);
 
+         sem_wait(&bocas);
          ferver_agua(agua);
+         caldo_t caldo = preparar_caldo(agua);
 
+         cozinhar_legumes(legumes, caldo);
 
-         preparar_caldo(agua_ferv);  //1min
+         sem_wait(&BalcaoVazio);
+         empratar_sopa(legumes,caldo, prato);
+         sem_post(&bocas);
+         sem_post(&BalcaoVazio);
 
          destroy_caldo(caldo);
 
-         cozinhar_legumes(legumes,  caldo);
-
          destroy_legumes( legumes);
-
-         empratar_sopa(legumes,caldo, prato);
-
      }
+     destroy_pedido(p);
 
-   destroy_prato(p);
+     sem_post(sem_cozinheiros);
 
-   notificar_prato_no_balcao( prato);
+     notificar_prato_no_balcao(*prato);
+
+     funcao_garcon(prato);
 
 }
 
 
-Funcao_garcon(pedido_t p){
+void funcao_garcon(prato_t *prato){
 
-    //essa conversão é possível?
-     prato_t prato = *(prato_t*)p ;
-
-     entregar_pedido(prato_t* prato);
+    sem_wait(&sem_garcons);
+    sem_wait(&BalcaoCheio);
+    entregar_pedido(prato);
+    sem_post(&BalcaoVazio);
+    sem_post(&sem_garcons);
 }
 
 
@@ -165,23 +184,18 @@ Funcao_garcon(pedido_t p){
 // inicialização da cozinha
 void cozinha_init(int cozinheiros, int bocas, int frigideiras, int garcons, int tam_balcao){
 
+    sem_init(&bocas,0,bocas);
 
-    for (size_t i= 0 ; i< bocas ; i++){
-        sem_init(&bocas,0,bocas);
-    }
-
-    for(size_t i = 0; i< frigideiras ; i++){
-        sem_init(&frigideiras,0,frigideiras);
-    }
+    sem_init(&frigideiras,0,frigideiras);
 
     sem_init(&BalcaoCheio,0,0);
     sem_init(&BalcaoVazio,0,tam_balcao);
 
-    pthread_mutex_init(&cozinheiro, NULL);
-    pthread_mutex_init(&garcon,NULL);
+    sem_init(&sem_cozinheiros,0,cozinheiros);
+    sem_init(&sem_garcons,0,garcons);
 
-    pthread_t threads_cozinheiros = malloc(sizeof(cozinheiros));
-    pthread_t threads_garcons = malloc(sizeof(garcons));
+    pthread_t *threads_cozinheiros = malloc(cozinheiros * sizeof(cozinheiros));
+    pthread_t *threads_garcons = malloc(garcons * sizeof(garcons));
 
 }
 
@@ -247,7 +261,7 @@ int main(int argc, char** argv) {
             // criando as threads cozinheiros
             pthread_create(&threads_cozinheiros[next_id++],NULL,&processar_pedido,&p);
             // criando as threads garcons
-            pthread_create(&threads_garcons[next_id++],NULL,&Funcao_garcon,&p);
+            //pthread_create(&threads_garcons[next_id++],NULL,&funcao_garcon,NULL);
 
 
             //processar_pedido(p);
