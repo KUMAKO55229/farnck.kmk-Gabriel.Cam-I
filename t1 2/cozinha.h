@@ -35,23 +35,23 @@ extern  pthread_mutex_t garcon;// para controlar a entrega de pedido
 /*
 typedef struct{
 	int n_cozinheiros;
-	int n_bocas; 
+	int n_bocas;
 	int n_frigideiras;
-	int n_garcons ; 
+	int n_garcons ;
 	int tamanho_balcao;
-    
+
 
 	sem_t bocas;
 
 	sem_t frigideiras;
-	
+
 	sem_t tamanho_balcao;
 
 	pthread_mutex_t cozinheiro; // a ser utilizado em tarefas com DE
 	pthread_mutex_t garcon;// para controlar a entrega de pedido
-	
 
-} cozinha_t ; 
+
+} cozinha_t ;
 
 
 */

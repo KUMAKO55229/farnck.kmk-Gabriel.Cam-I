@@ -6,7 +6,7 @@
 #include "pedido.h"
 #include "cozinha.h"
 #include "tarefas.h"
- 
+
 
 #include <unistd.h>
 
@@ -36,7 +36,7 @@ int parse_gt_zero(const char* buf, const char* name, int* res) {
         return 0;
     }
     if (*res <= 0) {
-        fprintf(stderr, "Esperava um valor maior que zero para %s, leu: %d\n", 
+        fprintf(stderr, "Esperava um valor maior que zero para %s, leu: %d\n",
                 name, *res);
         return 0;
     }
@@ -53,47 +53,60 @@ void processar_pedido(pedido_t p){
 
         create_prato(p);
 
-  
-     // if (p.prato == "SPAGHETTI")
-
-    // if (strcmp (p.prato,"SPAGHETTI") == 1)
-
        if(p.prato == PEDIDO_SPAGHETTI) {
 
 
-       /*  Spaghetti: 
+       /*  Spaghetti:
         Esquentar o molho [5min]
         Ferver água [3min]
         Cozinhar o Spaghetti (na água fervente) [5min]
         Dourar o bacon em uma frigideira [2min]
         Empratar o pedido [3min] [DE]*/
 
-        // receita correta? 
-         create_spaghetti();
+        // receita correta?
+        pthread_t molho_thread, agua_thread, dourar_thread;
+        pthread_mutex_init mutex_agua;
+        create_spaghetti();
 
          create_molho();
+         create_bacon();
 
-         esquentar_molho(molho);
+         sem_wait(&bocas);
+         pthread_create(&molho_thread,NULL,&esquentar_molho,(void *)molho);
+         sem_post(&bocas);
 
          destroy_molho(molho);
-         
-         ferver_agua(agua);
 
+         sem_wait(&bocas);
+         sem_wait(&frigideiras);
+         pthread_create(&dourar_thread,NULL,&dourar_bacon,(void *)bacon);
+         sem_post(&frigideiras);
+         sem_post(&bocas);
+
+         sem_wait(&bocas);
+         pthread_create(&agua_thread,NULL,&ferver_agua,(void *)agua);
+
+         pthread_join(&agua_thread,NULL);
          cozinhar_spaghetti(spaghetti, agua);
+         sem_post(&bocas);
 
+         pthread_join(&molho_thread,NULL);
+         pthread_join(&dourar_bacon,NULL);
+
+         destroy_bacon(bacon);
          destroy_spaghetti(spaghetti);
 
-         
-         empratar_spaghetti( spaghetti,  molho, 
+
+         empratar_spaghetti( spaghetti,  molho,
                              bacon,  prato);
 
      }else if (p.prato == "CARNE"){
-         /*  
+         /*
         Carne:
         Cortar a carne [5min] [DE]
         Temperar a carne [3min] [DE]
         Grelhar a carne em uma frigideira [3min] [DE]
-        Empratar o pedido [1min] [DE] 
+        Empratar o pedido [1min] [DE]
         */
          create_carne();
 
@@ -131,7 +144,7 @@ void processar_pedido(pedido_t p){
          empratar_sopa(legumes,caldo, prato);
 
      }
-   
+
    destroy_prato(p);
 
    notificar_prato_no_balcao( prato);
@@ -141,63 +154,65 @@ void processar_pedido(pedido_t p){
 
 Funcao_garcon(pedido_t p){
 
-//essa conversão é possível? 
- prato_t prato = *(prato_t*)p ;
+    //essa conversão é possível?
+     prato_t prato = *(prato_t*)p ;
 
- entregar_pedido(prato_t* prato);
+     entregar_pedido(prato_t* prato);
 }
-    
 
 
-// inicialização da da cozinha
+
+// inicialização da cozinha
 void cozinha_init(int cozinheiros, int bocas, int frigideiras, int garcons, int tam_balcao){
 
 
-for (size_t i= 0 ; i< bocas ; i++){
-    sem_init(&bocas,0,bocas);
-}
+    for (size_t i= 0 ; i< bocas ; i++){
+        sem_init(&bocas,0,bocas);
+    }
 
-for(size_t i = 0; i< frigideiras ; i++){
-    sem_init(&frigideiras,0,frigideiras);
-}
+    for(size_t i = 0; i< frigideiras ; i++){
+        sem_init(&frigideiras,0,frigideiras);
+    }
 
-sem_init(&BalcaoCheio,0,0);
-sem_init(&BalcaoVazio,0,tam_balcao);
+    sem_init(&BalcaoCheio,0,0);
+    sem_init(&BalcaoVazio,0,tam_balcao);
 
-pthread_mutex_init(&cozinheiro, NULL);
-pthread_mutex_init(&garcon,NULL);
+    pthread_mutex_init(&cozinheiro, NULL);
+    pthread_mutex_init(&garcon,NULL);
 
-pthread_t threads_cozinheiros = malloc(sizeof(cozinheiros));
-pthread_t threads_garcons = malloc(sizeof(garcons));
+    pthread_t threads_cozinheiros = malloc(sizeof(cozinheiros));
+    pthread_t threads_garcons = malloc(sizeof(garcons));
 
 }
 
 
 int main(int argc, char** argv) {
-    int bocas_total = 0, bocas = 4, frigideiras = 2, fogoes = 2, 
+    int bocas_total = 0, bocas = 4, frigideiras = 2, fogoes = 2,
         cozinheiros = 6, garcons = 1, balcao = 5, c = 0;
+
+    /*Loop para fazer o parsing dos argumentos corretamente*/
     while (c >= 0) {
         int long_idx;
         c = getopt_long(argc, argv, "cbfrga", cmd_opts, &long_idx);
         if (c == 0) c = cmd_opts[long_idx].val;
 
         switch (c) {
-        case 'c': 
+        case 'c':
             if (!parse_gt_zero(optarg, argv[optind-1], &cozinheiros)) abort();
             break;
-        case 'b': 
+        case 'b':
             if (!parse_gt_zero(optarg, argv[optind-1], &bocas      )) abort();
             break;
-        case 'f': 
+        case 'f':
             if (!parse_gt_zero(optarg, argv[optind-1], &fogoes     )) abort();
             break;
-        case 'r': 
+        case 'r':
             if (!parse_gt_zero(optarg, argv[optind-1], &frigideiras)) abort();
             break;
-        case 'g': 
+        case 'g':
             if (!parse_gt_zero(optarg, argv[optind-1], &garcons    )) abort();
             break;
-        case 'a': 
+        case 'a':
             if (!parse_gt_zero(optarg, argv[optind-1], &balcao     )) abort();
             break;
         case -1:
@@ -207,6 +222,8 @@ int main(int argc, char** argv) {
         }
     }
 
+    //Checa se cada um dos valores é maior do que zero; Se for menor, aborta a operação
+    //e imprime o erro no arquivo.
     bocas_total = bocas*fogoes;
     check_missing(cozinheiros, "cozinheiros");
     check_missing(bocas, "bocas");
@@ -214,8 +231,9 @@ int main(int argc, char** argv) {
     check_missing(frigideiras, "frigideiras");
     check_missing(garcons, "garcons");
     check_missing(balcao, "balcao");
-    
-    cozinha_init(cozinheiros, bocas_total, frigideiras, 
+
+    //Inicializa a cozinha com as variáveis que foram parseadas.
+    cozinha_init(cozinheiros, bocas_total, frigideiras,
                  garcons, balcao);
 
     char* buf = (char*)malloc(4096);
@@ -223,9 +241,9 @@ int main(int argc, char** argv) {
     int ret = 0;
     while((ret = scanf("%4095s", buf)) > 0) {
         pedido_t p = {next_id++, pedido_prato_from_name(buf)};
-        if (!p.prato) 
+        if (!p.prato)
             fprintf(stderr, "Pedido inválido descartado: \"%s\"\n", buf);
-        else 
+        else
             // criando as threads cozinheiros
             pthread_create(&threads_cozinheiros[next_id++],NULL,&processar_pedido,&p);
             // criando as threads garcons
@@ -237,12 +255,12 @@ int main(int argc, char** argv) {
     if (ret != EOF) {
         perror("Erro lendo pedidos de stdin:");
     }
-     
-     
+
+
 
     free(buf);
 
-   
+
     cozinha_destroy();
 
 
