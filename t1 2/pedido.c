@@ -1,7 +1,12 @@
 #include "pedido.h"
-#include <stdlib.h>
-#include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <getopt.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <pthread.h>
+#include <semaphore.h>
 
 const char* pedido_prato_names[] = {
     "<PEDIDO NULO>",

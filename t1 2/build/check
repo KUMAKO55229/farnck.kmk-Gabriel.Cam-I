@@ -1,8 +1,28 @@
-/usr/bin/ld: build/main.o: in function `main':
-/tmp/t1-test/t1/main.c:83: undefined reference to `cozinha_init'
-/usr/bin/ld: /tmp/t1-test/t1/main.c:94: undefined reference to `processar_pedido'
-/usr/bin/ld: /tmp/t1-test/t1/main.c:102: undefined reference to `cozinha_destroy'
-collect2: error: ld returned 1 exit status
-make[2]: *** [Makefile:51: build/program] Error 1
-Programa não compilou
-Grade for t1: -1
+1
+Esquentando molho...
+Esquentando molho...
+Cortando legumes...
+Fervendo agua...
+Preparando caldo...
+Cozinhando legumes...
+Empratando sopa...
+Pedido 2 (SOPA) entregue!
+Sopa servida!
+[validator] create_agua foi chamado 1 vezes! Esperava 2 chamadas
+[validator] ferver_agua foi chamado 1 vezes! Esperava 2 chamadas
+[validator] create_prato foi chamado 1 vezes! Esperava 3 chamadas
+[validator] entregar_pedido foi chamado 1 vezes! Esperava 3 chamadas
+[validator] notificar_prato_no_balcao foi chamado 1 vezes! Esperava 3 chamadas
+[validator] create_molho foi chamado 0 vezes! Esperava 1 chamadas
+[validator] esquentar_molho foi chamado 0 vezes! Esperava 1 chamadas
+[validator] create_bacon foi chamado 0 vezes! Esperava 1 chamadas
+[validator] dourar_bacon foi chamado 0 vezes! Esperava 1 chamadas
+[validator] create_spaghetti foi chamado 0 vezes! Esperava 1 chamadas
+[validator] cozinhar_spaghetti foi chamado 0 vezes! Esperava 1 chamadas
+[validator] empratar_spaghetti foi chamado 0 vezes! Esperava 1 chamadas
+[validator] create_carne foi chamado 0 vezes! Esperava 1 chamadas
+[validator] cortar_carne foi chamado 0 vezes! Esperava 1 chamadas
+[validator] temperar_carne foi chamado 0 vezes! Esperava 1 chamadas
+[validator] grelhar_carne foi chamado 0 vezes! Esperava 1 chamadas
+[validator] empratar_carne foi chamado 0 vezes! Esperava 1 chamadas
+Grade for t1 2: -2

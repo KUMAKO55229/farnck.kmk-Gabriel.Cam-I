@@ -1,6 +1,12 @@
 #include "tarefas.h"
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <getopt.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <pthread.h>
+#include <semaphore.h>
 #include <assert.h>
 #include <stdatomic.h>
 #include <time.h>
@@ -14,7 +20,7 @@ static void simulation_sleep(unsigned minutes) {
 
 
 /** Exercício 1 de mutex sem mutex, entender isso não é parte do
-    trabalho.  
+    trabalho.
 
     Se continuou lendo, saiba que algumas operações [1] podem ser
     feitas nesse contador de maneira atômica sem que seja usado um
@@ -34,7 +40,7 @@ static void simulation_sleep(unsigned minutes) {
 */
 static atomic_uint_fast64_t g_id;
 
-//Detecta alguns erros de memória, como uso após o destroy() ou buffer 
+//Detecta alguns erros de memória, como uso após o destroy() ou buffer
 //overflows que afetaram esse objeto
 #define CHECK_PTR(type, p)                                           \
     if (p->id & 0xf0000000) {                                        \
@@ -49,7 +55,7 @@ static atomic_uint_fast64_t g_id;
         type##_t* p = calloc(1, sizeof(type##_t));                         \
         p->id = atomic_fetch_add_explicit(&g_id, 1, memory_order_relaxed); \
         return p;                                                          \
-    } 
+    }
 #define DESTROY_F(type)                \
     void destroy_##type(type##_t* p) { \
         CHECK_PTR(type##_t, p);        \
@@ -68,18 +74,18 @@ LIFECYCLE_FS(carne);
 prato_t* create_prato(pedido_t pedido) {
     assert(pedido.prato && pedido.prato < PEDIDO__SIZE);
     prato_t* p = calloc(1, sizeof(prato_t));
-    p->id = atomic_fetch_add_explicit(&g_id, 1, memory_order_relaxed); 
+    p->id = atomic_fetch_add_explicit(&g_id, 1, memory_order_relaxed);
     p->pedido = pedido;
     return p;
-} 
+}
 void entregar_pedido(prato_t* p) {
     simulation_sleep(3);
-    printf("Pedido %d (%s) entregue!\n", 
+    printf("Pedido %d (%s) entregue!\n",
            p->pedido.id, pedido_prato_to_name(p->pedido.prato));
     destroy_prato(p);
 }
 void notificar_prato_no_balcao(prato_t* prato) {
-    /* não faço nada, mas o script corretor coloca código aqui para 
+    /* não faço nada, mas o script corretor coloca código aqui para
        corrigir o trabalho. */
 }
 void destroy_prato(prato_t* p) {
@@ -95,7 +101,7 @@ void destroy_prato(prato_t* p) {
 
 caldo_t* preparar_caldo(agua_t* agua_ferv) {
     CHECK_PTR(agua_t, agua_ferv);
-    simulation_sleep(1);  
+    simulation_sleep(1);
     caldo_t* p = calloc(sizeof(caldo_t), 1);
     p->id = atomic_fetch_add_explicit(&g_id, 1, memory_order_relaxed);
     destroy_agua(agua_ferv);
@@ -128,7 +134,7 @@ TAREFA(carne,   grelhar,    grelhada,   3)
 TAREFA2(spaghetti, agua,  cozinhar, cozido,  5)
 TAREFA2(legumes,   caldo, cozinhar, cozidos, 8)
 
-void empratar_spaghetti(spaghetti_t* spaghetti, molho_t* molho,  
+void empratar_spaghetti(spaghetti_t* spaghetti, molho_t* molho,
                         bacon_t* bacon, prato_t* prato) {
     CHECK_PTR(spaghetti_t, spaghetti);
     CHECK_PTR(molho_t, molho);
@@ -158,4 +164,3 @@ void empratar_carne(carne_t* carne, prato_t* prato) {
     prato->coisas = calloc(prato->coisas_len = 1, sizeof(void*));
     prato->coisas[0] = carne;
 }
-
