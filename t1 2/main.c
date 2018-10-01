@@ -13,8 +13,10 @@
 #include "tarefas.h"
 
 pedido_t pedido_atual;
+prato_t *buffer;
+int indice_garcons, indice_pratos, tamanho_buffer,lendoGarcon=0,lendoCozinheiro=0;
 
-pthread_mutex_t mutex;
+pthread_mutex_t mutex_cozinheiros, mutex_garcons, mutex_pedidos;
 
 sem_t  sem_bocas;
 sem_t  sem_frigideiras;
@@ -80,127 +82,154 @@ void *tratar_agua(void *agua){
 }
 
 void *administrar_cozinheiros(){
-    printf("Cozinheiro ocupado!\n");
-    sem_wait(&pedido_disponivel);
-    prato_t *prato = create_prato(pedido_atual);
+    int aux;
+    do{
+        sem_wait(&pedido_disponivel);
+        prato_t *prato = create_prato(pedido_atual);
 
-    if(pedido_atual.prato == PEDIDO_SPAGHETTI) {
-        pthread_mutex_unlock(&mutex);
-        printf("Cozinheiro preparando spaghetti\n");
-        sem_post(&espacoVazio);
-        sem_wait(&sem_cozinheiros);
-        pthread_t molho_thread, agua_thread, dourar_thread;
+        if(pedido_atual.prato == PEDIDO_SPAGHETTI) {
+            pthread_mutex_unlock(&mutex_pedidos);
+            printf("Cozinheiro preparando spaghetti\n");
+            sem_wait(&sem_cozinheiros);
+            pthread_t molho_thread, agua_thread, dourar_thread;
 
-        spaghetti_t *spaghetti = create_spaghetti();
-        molho_t *molho = create_molho();
-        bacon_t *bacon = create_bacon();
-        agua_t *agua = create_agua();
+            spaghetti_t *spaghetti = create_spaghetti();
+            molho_t *molho = create_molho();
+            bacon_t *bacon = create_bacon();
+            agua_t *agua = create_agua();
 
-        sem_wait(&sem_bocas);
-        pthread_create(&molho_thread,NULL,tratar_molho,(void *)molho);
-
-
-        sem_wait(&sem_bocas);
-        sem_wait(&sem_frigideiras);
-        pthread_create(&dourar_thread,NULL,tratar_bacon,(void *)bacon);
-
-        sem_wait(&sem_bocas);
-        pthread_create(&agua_thread,NULL,tratar_agua,(void *)agua);
-
-        pthread_join(agua_thread,NULL);
-        cozinhar_spaghetti(spaghetti, agua);
-
-        pthread_join(molho_thread,NULL);
-        pthread_join(dourar_thread,NULL);
+            sem_wait(&sem_bocas);
+            pthread_create(&molho_thread,NULL,tratar_molho,(void *)molho);
 
 
-        sem_wait(&BalcaoVazio);
-        empratar_spaghetti( spaghetti,  molho,
-                             bacon, (prato_t *)prato);
-        sem_post(&BalcaoCheio);
-        funcao_garcon((prato_t *)prato);
+            sem_wait(&sem_bocas);
+            sem_wait(&sem_frigideiras);
+            pthread_create(&dourar_thread,NULL,tratar_bacon,(void *)bacon);
 
-        sem_post(&sem_bocas);
-        sem_post(&sem_frigideiras);
-        sem_post(&sem_bocas);
-        sem_post(&sem_bocas);
-    }
+            sem_wait(&sem_bocas);
+            pthread_create(&agua_thread,NULL,tratar_agua,(void *)agua);
 
-    else if (pedido_atual.prato == PEDIDO_CARNE){
-        /*
-       Carne:
-       Cortar a carne [5min] [DE]
-       Temperar a carne [3min] [DE]
-       Grelhar a carne em uma frigideira [3min] [DE]
-       Empratar o pedido [1min] [DE]
-       */
-       pthread_mutex_unlock(&mutex);
-       printf("Cozinheiro preparando carne\n");
-       sem_post(&espacoVazio);
-       sem_wait(&sem_cozinheiros);
-       carne_t *carne = create_carne();
-       cortar_carne(carne);
+            pthread_join(agua_thread,NULL);
+            cozinhar_spaghetti(spaghetti, agua);
+            destroy_agua(agua);
 
-       temperar_carne(carne);
+            pthread_join(molho_thread,NULL);
+            pthread_join(dourar_thread,NULL);
 
-       sem_wait(&sem_bocas);
-       sem_wait(&sem_frigideiras);
-       grelhar_carne(carne);
 
-       sem_wait(&BalcaoVazio);
-       empratar_carne(carne, (prato_t *)prato);
+            sem_wait(&BalcaoVazio);
+            pthread_mutex_lock(&mutex_cozinheiros);
+            indice_pratos = (indice_pratos + 1) % tamanho_buffer;
+            empratar_spaghetti( spaghetti,  molho,
+                                 bacon, prato);
+            buffer[indice_pratos] = *prato;
+            lendoCozinheiro -= 1;
+            aux = lendoCozinheiro;
+            pthread_mutex_unlock(&mutex_cozinheiros);
+            sem_post(&BalcaoCheio);
 
-       sem_post(&sem_frigideiras);
-       sem_post(&sem_bocas);
-       sem_post(&BalcaoCheio);
+            sem_post(&sem_bocas);
+            sem_post(&sem_frigideiras);
+            sem_post(&sem_bocas);
+            sem_post(&sem_bocas);
+        }
 
-       funcao_garcon((prato_t *)prato);
-    }
+        else if (pedido_atual.prato == PEDIDO_CARNE){
+            /*
+           Carne:
+           Cortar a carne [5min] [DE]
+           Temperar a carne [3min] [DE]
+           Grelhar a carne em uma frigideira [3min] [DE]
+           Empratar o pedido [1min] [DE]
+           */
+           pthread_mutex_unlock(&mutex_pedidos);
+           printf("Cozinheiro preparando carne\n");
+           sem_wait(&sem_cozinheiros);
+           carne_t *carne = create_carne();
+           cortar_carne(carne);
 
-    else if (pedido_atual.prato == PEDIDO_SOPA){
-        /* Sopa:
-         Cortar legumes [10min] [DE]
-         Ferver a água [3min]
-         Fazer o caldo (com a água fervente, precisa de boca de fogão) [2min]
-         Cozinhar os legumes no caldo [8min]
-         Empratar o pedido [1min] [DE] */
-         pthread_mutex_unlock(&mutex);
-         printf("Cozinheiro preparando sopa\n");
-         sem_post(&espacoVazio);
-         sem_wait(&sem_cozinheiros);
-         legumes_t *legumes = create_legumes();
-         agua_t *agua = create_agua();
+           temperar_carne(carne);
 
-         cortar_legumes(legumes);
+           sem_wait(&sem_bocas);
+           sem_wait(&sem_frigideiras);
+           grelhar_carne(carne);
 
-         sem_wait(&sem_bocas);
-         ferver_agua(agua);
-         caldo_t *caldo = preparar_caldo(agua);
+           sem_wait(&BalcaoVazio);
+           pthread_mutex_lock(&mutex_cozinheiros);
+           indice_pratos = (indice_pratos + 1) % tamanho_buffer;
+           empratar_carne(carne, (prato_t *)prato);
+           buffer[indice_pratos] = *prato;
+           lendoCozinheiro -= 1;
+           aux = lendoCozinheiro;
+           pthread_mutex_unlock(&mutex_cozinheiros);
 
-         cozinhar_legumes(legumes, caldo);
+           sem_post(&sem_frigideiras);
+           sem_post(&sem_bocas);
+           sem_post(&BalcaoCheio);
+        }
 
-         sem_wait(&BalcaoVazio);
-         empratar_sopa(legumes,caldo, (prato_t *)prato);
-         sem_post(&sem_bocas);
-         sem_post(&BalcaoCheio);
-         funcao_garcon((prato_t *)prato);
+        else if (pedido_atual.prato == PEDIDO_SOPA){
+            /* Sopa:
+             Cortar legumes [10min] [DE]
+             Ferver a água [3min]
+             Fazer o caldo (com a água fervente, precisa de boca de fogão) [2min]
+             Cozinhar os legumes no caldo [8min]
+             Empratar o pedido [1min] [DE] */
+             pthread_mutex_unlock(&mutex_pedidos);
+             printf("Cozinheiro preparando sopa\n");
+             sem_wait(&sem_cozinheiros);
+             legumes_t *legumes = create_legumes();
+             agua_t *agua = create_agua();
 
-    }
+             cortar_legumes(legumes);
 
-    sem_post(&sem_cozinheiros);
+             sem_wait(&sem_bocas);
+             ferver_agua(agua);
+             caldo_t *caldo = preparar_caldo(agua);
 
-    notificar_prato_no_balcao(prato);
+             cozinhar_legumes(legumes, caldo);
+
+             sem_wait(&BalcaoVazio);
+             pthread_mutex_lock(&mutex_cozinheiros);
+             indice_pratos = (indice_pratos + 1) % tamanho_buffer;
+             empratar_sopa(legumes,caldo, (prato_t *)prato);
+             buffer[indice_pratos] = *prato;
+             lendoCozinheiro -= 1;
+             aux = lendoCozinheiro;
+             pthread_mutex_unlock(&mutex_cozinheiros);
+             sem_post(&BalcaoCheio);
+             sem_post(&sem_bocas);
+
+        }
+
+        sem_post(&sem_cozinheiros);
+        notificar_prato_no_balcao(prato);
+    }while(aux>0);
+    printf("Saiu!\n");
     return NULL;
 }
 
 
-void funcao_garcon(prato_t *prato){
+void *funcao_garcon(){
+    int aux;
+    do{
+        sem_wait(&sem_garcons);
+        sem_wait(&BalcaoCheio);
+        pthread_mutex_lock(&mutex_garcons);
+        indice_garcons = (indice_garcons + 1) % tamanho_buffer;
+        prato_t *prato = malloc(sizeof(prato_t));
+        *prato = buffer[indice_garcons];
+        entregar_pedido(prato);
+        lendoGarcon -= 1;
+        aux = lendoGarcon;
+        pthread_mutex_unlock(&mutex_garcons);
 
-    sem_wait(&sem_garcons);
-    sem_wait(&BalcaoCheio);
-    entregar_pedido(prato);
-    sem_post(&BalcaoVazio);
-    sem_post(&sem_garcons);
+        sem_post(&BalcaoVazio);
+        sem_post(&sem_garcons);
+        printf("Lendo garcon: %d\n",lendoGarcon);
+    }while(aux > 0);
+    printf("Saiu!\n");
+    return NULL;
 }
 
 
@@ -219,7 +248,16 @@ void cozinha_init(int cozinheiros, int bocas, int frigideiras, int garcons, int 
     sem_init(&sem_garcons,0,garcons);
 
     sem_init(&pedido_disponivel,0,0);
-    sem_init(&espacoVazio,0,cozinheiros);
+    //sem_init(&espacoVazio,0,1);
+
+    pthread_mutex_init(&mutex_cozinheiros,NULL);
+    pthread_mutex_init(&mutex_pedidos,NULL);
+    pthread_mutex_init(&mutex_garcons,NULL);
+
+    buffer = malloc(sizeof(prato_t) * tam_balcao);
+    indice_pratos = 0;
+    indice_garcons = 0;
+    tamanho_buffer = tam_balcao;
 
 }
 
@@ -274,11 +312,13 @@ int main(int argc, char** argv) {
     cozinha_init(cozinheiros, bocas_total, frigideiras,
                  garcons, balcao);
 
-    pthread_t threads_cozinheiros[cozinheiros];
-    pthread_mutex_init(&mutex,NULL);
+    pthread_t threads_cozinheiros[cozinheiros], threads_garcons[garcons];
 
     for(int i=0;i<cozinheiros;i++){
         pthread_create(&threads_cozinheiros[i],NULL,administrar_cozinheiros,NULL);
+    }
+    for(int i=0;i<garcons;i++){
+        pthread_create(&threads_garcons[i],NULL,funcao_garcon,NULL);
     }
 
     char* buf = (char*)malloc(4096);
@@ -289,9 +329,10 @@ int main(int argc, char** argv) {
         if (!p.prato)
             fprintf(stderr, "Pedido inválido descartado: \"%s\"\n", buf);
         else{
-            sem_wait(&espacoVazio);
-            pthread_mutex_lock(&mutex);
+            pthread_mutex_lock(&mutex_pedidos);
             pedido_atual = p;
+            lendoGarcon += 1;
+            lendoCozinheiro += 1;
             sem_post(&pedido_disponivel);
         }
     }
@@ -301,10 +342,14 @@ int main(int argc, char** argv) {
 
     for(int i=0;i<cozinheiros;i++)
         pthread_join(threads_cozinheiros[i],NULL);
+    for(int i=0;i<garcons;i++)
+        pthread_join(threads_garcons[i],NULL);
 
     free(buf);
-
-    pthread_mutex_destroy(&mutex);
+    free(buffer);
+    pthread_mutex_destroy(&mutex_cozinheiros);
+    pthread_mutex_destroy(&mutex_pedidos);
+    pthread_mutex_destroy(&mutex_garcons);
     sem_destroy(&BalcaoCheio);
     sem_destroy(&BalcaoVazio);
     sem_destroy(&sem_garcons);
@@ -312,7 +357,7 @@ int main(int argc, char** argv) {
     sem_destroy(&sem_bocas);
     sem_destroy(&sem_frigideiras);
     sem_destroy(&pedido_disponivel);
-    sem_destroy(&espacoVazio);
+
 
     return 0;
 }

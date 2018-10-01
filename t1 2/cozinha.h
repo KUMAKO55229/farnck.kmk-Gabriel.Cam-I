@@ -6,7 +6,7 @@
 
 extern void cozinha_init(int cozinheiros, int bocas, int frigideiras, int garcons, int tam_balcao);
 extern void *administrar_cozinheiros();
-extern void funcao_garcon(prato_t *prato);
+extern void *funcao_garcon();
 extern void *tratar_agua(void *agua);
 extern void *tratar_bacon(void *bacon);
 extern void *tratar_molho(void *molho);

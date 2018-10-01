@@ -1,12 +1,12 @@
-CFLAGS=-pthread -D_POSIX_C_SOURCE=200809L #-g -O0 -fsanitize=address
+CFLAGS=-pthread -D_POSIX_C_SOURCE=200809L -g -O0 -fsanitize=address
 LFLAGS=
 OUTPUT=program
 LIBS=-lm
 
-# Essas duas coisas servem pra mapear quais arquivos .c dependem de 
-# quais arquivos .h. Lembre-se que se o .h muda, todo .c que inclui 
-# ele precisa ser compilado novamente. Esse makefile usa features 
-# do GCC pra que o próprio GCC dê essa informação (seria chato 
+# Essas duas coisas servem pra mapear quais arquivos .c dependem de
+# quais arquivos .h. Lembre-se que se o .h muda, todo .c que inclui
+# ele precisa ser compilado novamente. Esse makefile usa features
+# do GCC pra que o próprio GCC dê essa informação (seria chato
 # listar essas relações aqui no Makefile)
 # http://make.mad-scientist.net/papers/advanced-auto-dependency-generation/
 DEPFLAGS=-MT $@ -MMD -MP -MF build/$*.Td
@@ -17,23 +17,23 @@ SOURCES=$(wildcard *.c)
 # O := faz com que o lado direito seja expando AGORA, e não mais tarde
 OBJS:=$(patsubst %.c,build/%.o,$(SOURCES))
 
-# all, submission e clean sempre rodam (sem checar se suas dependencias 
+# all, submission e clean sempre rodam (sem checar se suas dependencias
 # estão sujas ou não)
 .PHONY: all submission clean
 
 # Cria pastas internas, o usuário querendo ou não
 $(shell mkdir -p $(DEPDIR) build >/dev/null)
 
-# Esse é o primeiro alvo não especial. make == make all 
+# Esse é o primeiro alvo não especial. make == make all
 # e make all == make program
 all: build/program
 
 # Apaga essa regra, se existir
 %.o: %.c
-# Todo arquivo .o tem um .c como dependencia. Quando o .c muda, o .o precisa 
-# ser recompilado. $@ expande pro arquivo .o em build/ e $< expande pro 
+# Todo arquivo .o tem um .c como dependencia. Quando o .c muda, o .o precisa
+# ser recompilado. $@ expande pro arquivo .o em build/ e $< expande pro
 # arquivo .c correspondente
-# O arquivo .d guarda info de dependência de headers, se ele muda, também 
+# O arquivo .d guarda info de dependência de headers, se ele muda, também
 # precisamos recompilar.
 build/%.o : %.c build/%.d
 	$(CC) -Wall -Werror -std=c11 $(CFLAGS) $(DEPFLAGS) -o $@ -c $<
@@ -41,7 +41,7 @@ build/%.o : %.c build/%.d
 
 # Junta todos os arquivos .o em um único magnífico binário
 # Se qualquer .o em $(OBJ) mudar, program precisa ser reconstruído
-# O Make não entende wildcards na lista de dependências, por isso 
+# O Make não entende wildcards na lista de dependências, por isso
 # a variável OBJ foi computada anteriormente, com :=
 # $^ significa *todas* as dependências ($< pega só a primeira)
 build/program: $(OBJS)
@@ -62,10 +62,9 @@ clean:
 # Todo arquivo de dependência é também um target. (evita erro no primeiro build)
 build/%.d: ;
 # Pede pro make não tratar como arquivo intermediário
-.PRECIOUS: build/%.d 
+.PRECIOUS: build/%.d
 
 # Transforma a lista de arquivos .c em uma lista de arquivos .d em build/
-# Inclui esses arquivos .d (que contêm dependências de headers) como se 
+# Inclui esses arquivos .d (que contêm dependências de headers) como se
 # fossem parte desse makefile
 include $(wildcard $(patsubst %,build/%.d,$(basename $(SOURCES))))
-
