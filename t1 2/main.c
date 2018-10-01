@@ -12,9 +12,9 @@
 #include "cozinha.h"
 #include "tarefas.h"
 
-pthread_t threads_cozinheiros;
-
 pedido_t pedido_atual;
+
+pthread_mutex_t mutex;
 
 sem_t  sem_bocas;
 sem_t  sem_frigideiras;
@@ -80,11 +80,13 @@ void *tratar_agua(void *agua){
 }
 
 void *administrar_cozinheiros(){
+    printf("Cozinheiro ocupado!\n");
     sem_wait(&pedido_disponivel);
     prato_t *prato = create_prato(pedido_atual);
 
     if(pedido_atual.prato == PEDIDO_SPAGHETTI) {
-        printf("Fazendo spaghetti...\n");
+        pthread_mutex_unlock(&mutex);
+        printf("Cozinheiro preparando spaghetti\n");
         sem_post(&espacoVazio);
         sem_wait(&sem_cozinheiros);
         pthread_t molho_thread, agua_thread, dourar_thread;
@@ -106,7 +108,6 @@ void *administrar_cozinheiros(){
         pthread_create(&agua_thread,NULL,tratar_agua,(void *)agua);
 
         pthread_join(agua_thread,NULL);
-        printf("Cozinhando spaghetti...\n");
         cozinhar_spaghetti(spaghetti, agua);
 
         pthread_join(molho_thread,NULL);
@@ -114,12 +115,10 @@ void *administrar_cozinheiros(){
 
 
         sem_wait(&BalcaoVazio);
-        printf("Empratando spaghetti...\n");
         empratar_spaghetti( spaghetti,  molho,
                              bacon, (prato_t *)prato);
         sem_post(&BalcaoCheio);
         funcao_garcon((prato_t *)prato);
-        printf("Spaghetti servido!\n");
 
         sem_post(&sem_bocas);
         sem_post(&sem_frigideiras);
@@ -135,22 +134,20 @@ void *administrar_cozinheiros(){
        Grelhar a carne em uma frigideira [3min] [DE]
        Empratar o pedido [1min] [DE]
        */
+       pthread_mutex_unlock(&mutex);
+       printf("Cozinheiro preparando carne\n");
        sem_post(&espacoVazio);
        sem_wait(&sem_cozinheiros);
        carne_t *carne = create_carne();
-       printf("Cortando carne...\n");
        cortar_carne(carne);
 
-       printf("Temperando carne...\n");
        temperar_carne(carne);
 
        sem_wait(&sem_bocas);
        sem_wait(&sem_frigideiras);
-       printf("Grelhando carne...\n");
        grelhar_carne(carne);
 
        sem_wait(&BalcaoVazio);
-       printf("Empratando carne...\n");
        empratar_carne(carne, (prato_t *)prato);
 
        sem_post(&sem_frigideiras);
@@ -158,7 +155,6 @@ void *administrar_cozinheiros(){
        sem_post(&BalcaoCheio);
 
        funcao_garcon((prato_t *)prato);
-       printf("Carne servida!\n");
     }
 
     else if (pedido_atual.prato == PEDIDO_SOPA){
@@ -168,30 +164,26 @@ void *administrar_cozinheiros(){
          Fazer o caldo (com a água fervente, precisa de boca de fogão) [2min]
          Cozinhar os legumes no caldo [8min]
          Empratar o pedido [1min] [DE] */
+         pthread_mutex_unlock(&mutex);
+         printf("Cozinheiro preparando sopa\n");
          sem_post(&espacoVazio);
          sem_wait(&sem_cozinheiros);
          legumes_t *legumes = create_legumes();
          agua_t *agua = create_agua();
 
          cortar_legumes(legumes);
-         printf("Cortando legumes...\n");
 
          sem_wait(&sem_bocas);
-         printf("Fervendo agua...\n");
          ferver_agua(agua);
-         printf("Preparando caldo...\n");
          caldo_t *caldo = preparar_caldo(agua);
 
          cozinhar_legumes(legumes, caldo);
-         printf("Cozinhando legumes...\n");
 
          sem_wait(&BalcaoVazio);
-         printf("Empratando sopa...\n");
          empratar_sopa(legumes,caldo, (prato_t *)prato);
          sem_post(&sem_bocas);
          sem_post(&BalcaoCheio);
          funcao_garcon((prato_t *)prato);
-         printf("Sopa servida!\n");
 
     }
 
@@ -282,21 +274,23 @@ int main(int argc, char** argv) {
     cozinha_init(cozinheiros, bocas_total, frigideiras,
                  garcons, balcao);
 
-    for(int i=0;i<cozinheiros;i++)
-        pthread_create(&threads_cozinheiros,NULL,administrar_cozinheiros,NULL);
+    pthread_t threads_cozinheiros[cozinheiros];
+    pthread_mutex_init(&mutex,NULL);
+
+    for(int i=0;i<cozinheiros;i++){
+        pthread_create(&threads_cozinheiros[i],NULL,administrar_cozinheiros,NULL);
+    }
 
     char* buf = (char*)malloc(4096);
     int next_id = 1;
     int ret = 0;
-    ret = scanf("%4095s", buf);
-    printf("%d\n",ret);
     while((ret = scanf("%4095s", buf)) > 0) {
-        printf("Esquentando molho...\n");
         pedido_t p = {next_id++, pedido_prato_from_name(buf)};
         if (!p.prato)
             fprintf(stderr, "Pedido inválido descartado: \"%s\"\n", buf);
         else{
             sem_wait(&espacoVazio);
+            pthread_mutex_lock(&mutex);
             pedido_atual = p;
             sem_post(&pedido_disponivel);
         }
@@ -306,10 +300,11 @@ int main(int argc, char** argv) {
     }
 
     for(int i=0;i<cozinheiros;i++)
-        pthread_join(threads_cozinheiros,NULL);
+        pthread_join(threads_cozinheiros[i],NULL);
 
     free(buf);
 
+    pthread_mutex_destroy(&mutex);
     sem_destroy(&BalcaoCheio);
     sem_destroy(&BalcaoVazio);
     sem_destroy(&sem_garcons);
