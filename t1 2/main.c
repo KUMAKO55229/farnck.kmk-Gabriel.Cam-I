@@ -12,8 +12,8 @@
 #include "cozinha.h"
 #include "tarefas.h"
 
-pedido_t pedido_atual;
-prato_t *buffer;
+pedido_t *pedido_atual;
+prato_t **buffer;
 int indice_garcons, indice_pratos, tamanho_buffer,lendoGarcon=0,lendoCozinheiro=0;
 
 pthread_mutex_t mutex_cozinheiros, mutex_garcons, mutex_pedidos;
@@ -26,6 +26,7 @@ sem_t  sem_cozinheiros;
 sem_t  sem_garcons;
 sem_t  pedido_disponivel;
 sem_t  espacoVazio;
+sem_t  cozinheiro_disponivel;
 
 static struct option cmd_opts[] = {
     {"cozinheiros", required_argument, 0, 'c'},
@@ -63,6 +64,7 @@ void check_missing(int value, const char* name) {
     abort();
 }
 
+//As três funções a seguir são responsáveis pela concorrência das atividades
 void *tratar_molho(void *molho){
     printf("Esquentando molho...\n");
     esquentar_molho((molho_t *)molho);
@@ -81,13 +83,22 @@ void *tratar_agua(void *agua){
     return NULL;
 }
 
+//Funcao principal das threads_cozinheiros. Cada if é um tipo de receita (com exceção
+//do primeiro, que serve para "matar" a thread)
 void *administrar_cozinheiros(){
-    int aux;
-    do{
+    while(1){
+        sem_post(&cozinheiro_disponivel);
         sem_wait(&pedido_disponivel);
-        prato_t *prato = create_prato(pedido_atual);
 
-        if(pedido_atual.prato == PEDIDO_SPAGHETTI) {
+        if(pedido_atual == NULL){
+            pthread_mutex_unlock(&mutex_pedidos);
+            sem_wait(&sem_cozinheiros);
+            sem_post(&sem_cozinheiros);
+            return NULL;
+
+        }
+        else if(pedido_atual->prato == PEDIDO_SPAGHETTI) {
+            prato_t *prato = create_prato(*pedido_atual);
             pthread_mutex_unlock(&mutex_pedidos);
             printf("Cozinheiro preparando spaghetti\n");
             sem_wait(&sem_cozinheiros);
@@ -122,9 +133,8 @@ void *administrar_cozinheiros(){
             indice_pratos = (indice_pratos + 1) % tamanho_buffer;
             empratar_spaghetti( spaghetti,  molho,
                                  bacon, prato);
-            buffer[indice_pratos] = *prato;
-            lendoCozinheiro -= 1;
-            aux = lendoCozinheiro;
+            notificar_prato_no_balcao(prato);
+            buffer[indice_pratos] = prato;
             pthread_mutex_unlock(&mutex_cozinheiros);
             sem_post(&BalcaoCheio);
 
@@ -134,17 +144,13 @@ void *administrar_cozinheiros(){
             sem_post(&sem_bocas);
         }
 
-        else if (pedido_atual.prato == PEDIDO_CARNE){
-            /*
-           Carne:
-           Cortar a carne [5min] [DE]
-           Temperar a carne [3min] [DE]
-           Grelhar a carne em uma frigideira [3min] [DE]
-           Empratar o pedido [1min] [DE]
-           */
+        else if (pedido_atual->prato == PEDIDO_CARNE){
+
+           prato_t *prato = create_prato(*pedido_atual);
            pthread_mutex_unlock(&mutex_pedidos);
            printf("Cozinheiro preparando carne\n");
            sem_wait(&sem_cozinheiros);
+
            carne_t *carne = create_carne();
            cortar_carne(carne);
 
@@ -158,9 +164,9 @@ void *administrar_cozinheiros(){
            pthread_mutex_lock(&mutex_cozinheiros);
            indice_pratos = (indice_pratos + 1) % tamanho_buffer;
            empratar_carne(carne, (prato_t *)prato);
-           buffer[indice_pratos] = *prato;
-           lendoCozinheiro -= 1;
-           aux = lendoCozinheiro;
+           printf("Empratou carne!\n");
+           notificar_prato_no_balcao(prato);
+           buffer[indice_pratos] = prato;
            pthread_mutex_unlock(&mutex_cozinheiros);
 
            sem_post(&sem_frigideiras);
@@ -168,13 +174,8 @@ void *administrar_cozinheiros(){
            sem_post(&BalcaoCheio);
         }
 
-        else if (pedido_atual.prato == PEDIDO_SOPA){
-            /* Sopa:
-             Cortar legumes [10min] [DE]
-             Ferver a água [3min]
-             Fazer o caldo (com a água fervente, precisa de boca de fogão) [2min]
-             Cozinhar os legumes no caldo [8min]
-             Empratar o pedido [1min] [DE] */
+        else if (pedido_atual->prato == PEDIDO_SOPA){
+             prato_t *prato = create_prato(*pedido_atual);
              pthread_mutex_unlock(&mutex_pedidos);
              printf("Cozinheiro preparando sopa\n");
              sem_wait(&sem_cozinheiros);
@@ -186,50 +187,46 @@ void *administrar_cozinheiros(){
              sem_wait(&sem_bocas);
              ferver_agua(agua);
              caldo_t *caldo = preparar_caldo(agua);
-
              cozinhar_legumes(legumes, caldo);
 
              sem_wait(&BalcaoVazio);
              pthread_mutex_lock(&mutex_cozinheiros);
              indice_pratos = (indice_pratos + 1) % tamanho_buffer;
              empratar_sopa(legumes,caldo, (prato_t *)prato);
-             buffer[indice_pratos] = *prato;
-             lendoCozinheiro -= 1;
-             aux = lendoCozinheiro;
+             notificar_prato_no_balcao(prato);
+             buffer[indice_pratos] = prato;
              pthread_mutex_unlock(&mutex_cozinheiros);
+
              sem_post(&BalcaoCheio);
              sem_post(&sem_bocas);
-
         }
-
         sem_post(&sem_cozinheiros);
-        notificar_prato_no_balcao(prato);
-    }while(aux>0);
-    printf("Saiu!\n");
-    return NULL;
+    }
 }
 
-
+//Funcao principal das threads_garcons
 void *funcao_garcon(){
-    int aux;
-    do{
+    while(1){
         sem_wait(&sem_garcons);
         sem_wait(&BalcaoCheio);
         pthread_mutex_lock(&mutex_garcons);
         indice_garcons = (indice_garcons + 1) % tamanho_buffer;
         prato_t *prato = malloc(sizeof(prato_t));
-        *prato = buffer[indice_garcons];
-        entregar_pedido(prato);
-        lendoGarcon -= 1;
-        aux = lendoGarcon;
-        pthread_mutex_unlock(&mutex_garcons);
+        prato = buffer[indice_garcons];
 
+        if(prato == NULL){
+            pthread_mutex_unlock(&mutex_garcons);
+            sem_post(&BalcaoVazio);
+            sem_post(&sem_garcons);
+            return NULL;
+        }
+
+
+        entregar_pedido(prato);
+        pthread_mutex_unlock(&mutex_garcons);
         sem_post(&BalcaoVazio);
         sem_post(&sem_garcons);
-        printf("Lendo garcon: %d\n",lendoGarcon);
-    }while(aux > 0);
-    printf("Saiu!\n");
-    return NULL;
+    }
 }
 
 
@@ -237,24 +234,36 @@ void *funcao_garcon(){
 // inicialização da cozinha
 void cozinha_init(int cozinheiros, int bocas, int frigideiras, int garcons, int tam_balcao){
 
+    //Semaforo para as bocas dos fogao
     sem_init(&sem_bocas,0,bocas);
 
+    //Semaforo para as frigideiras
     sem_init(&sem_frigideiras,0,frigideiras);
 
+    //Semaforos que controlam a troca de pratos no balcao, permitindo aos cozinheiros
+    //empratarem os pratos e os garcons a servi-los
     sem_init(&BalcaoCheio,0,0);
     sem_init(&BalcaoVazio,0,tam_balcao);
 
+    //Semaforos que controlam o numero de cozinheiros e garcons que podem existir
+    //ao mesmo tempo
     sem_init(&sem_cozinheiros,0,cozinheiros);
     sem_init(&sem_garcons,0,garcons);
 
+    //Semaforos que controlam a troca de pedidos entre a funcao main e as threads_garcons,
+    //garantindo que os pedidos sejam lidos corretamente e apenas uma vez
     sem_init(&pedido_disponivel,0,0);
-    //sem_init(&espacoVazio,0,1);
+    sem_init(&cozinheiro_disponivel,0,cozinheiros);
 
+    //Mutexes utilizados durante a execucao do programa
     pthread_mutex_init(&mutex_cozinheiros,NULL);
     pthread_mutex_init(&mutex_pedidos,NULL);
     pthread_mutex_init(&mutex_garcons,NULL);
 
+    //Inicializacao das variaveis responsaveis pelo armazenamento (em um buffer)
+    //dos pratos produzidos para a entrega dos garcons
     buffer = malloc(sizeof(prato_t) * tam_balcao);
+    pedido_atual = malloc(sizeof(pedido_t));
     indice_pratos = 0;
     indice_garcons = 0;
     tamanho_buffer = tam_balcao;
@@ -323,33 +332,53 @@ int main(int argc, char** argv) {
 
     char* buf = (char*)malloc(4096);
     int next_id = 1;
-    int ret = 0;
+    int ret = 0, aux=0;
     while((ret = scanf("%4095s", buf)) > 0) {
         pedido_t p = {next_id++, pedido_prato_from_name(buf)};
         if (!p.prato)
             fprintf(stderr, "Pedido inválido descartado: \"%s\"\n", buf);
         else{
+            sem_wait(&cozinheiro_disponivel);
             pthread_mutex_lock(&mutex_pedidos);
-            pedido_atual = p;
-            lendoGarcon += 1;
-            lendoCozinheiro += 1;
+            aux+=1;
+            *pedido_atual = p;
             sem_post(&pedido_disponivel);
         }
     }
-    if (ret != EOF) {
-        perror("Erro lendo pedidos de stdin:");
+    //Matando threads cozinheiros...
+    for(int i=0;i<cozinheiros;i++){
+        sem_wait(&cozinheiro_disponivel);
+        pthread_mutex_lock(&mutex_pedidos);
+        pedido_atual = NULL;
+        sem_post(&pedido_disponivel);
     }
 
     for(int i=0;i<cozinheiros;i++)
         pthread_join(threads_cozinheiros[i],NULL);
+
+    //Matando threads garcons...
+    for(int i=0;i<garcons;i++){
+        sem_wait(&BalcaoVazio);
+        indice_pratos = (indice_pratos + 1) % tamanho_buffer;
+        buffer[indice_pratos] = NULL;
+        sem_post(&BalcaoCheio);
+    }
+
     for(int i=0;i<garcons;i++)
         pthread_join(threads_garcons[i],NULL);
 
+    if (ret != EOF) {
+        perror("Erro lendo pedidos de stdin:");
+    }
+
+    //"Destruindo" a cozinha e as demais estruturas
     free(buf);
     free(buffer);
+    free(pedido_atual);
     pthread_mutex_destroy(&mutex_cozinheiros);
     pthread_mutex_destroy(&mutex_pedidos);
     pthread_mutex_destroy(&mutex_garcons);
+    sem_destroy(&cozinheiro_disponivel);
     sem_destroy(&BalcaoCheio);
     sem_destroy(&BalcaoVazio);
     sem_destroy(&sem_garcons);
